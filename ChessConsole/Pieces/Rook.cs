@@ -4,6 +4,20 @@ namespace ChessConsole.Pieces
 {
     public class Rook : Piece
     {
+        public override int PossibleMoveCount
+        {
+            get
+            {
+                int sum = 0;
+                foreach (Direction direction in directions)
+                {
+                    sum += direction.GetPossibleMoveCount();
+                }
+
+                return sum;
+            }
+        }
+
         /// <summary>
         /// Represents the directions of movement
         /// </summary>
@@ -30,16 +44,21 @@ namespace ChessConsole.Pieces
             {
                 foreach (Direction direction in directions)
                 {
-                    foreach (ChessBoard.Cell cell in direction.GetPossibleMoves())
+                    foreach (ChessBoard.Cell node in direction.GetPossibleMoves())
                     {
-                        yield return cell;
+                        yield return node;
                     }
                 }
             }
         }
 
-        public override void Recalculate()
+        protected override void recalculatePossibleMoves()
         {
+            foreach (Direction direction in directions)
+            {
+                if (direction != null) direction.Dispose();
+            }
+
             //Open upward direction and listen to it
             directions[0] = new Direction(this, 0, 1);
             //Open downward direction and listen to it
@@ -52,10 +71,8 @@ namespace ChessConsole.Pieces
 
         public override bool IsBlockedIfMove(ChessBoard.Cell from, ChessBoard.Cell to, ChessBoard.Cell blocked)
         {
-            //If any direction can hit the blocked return false
             foreach (Direction direction in directions)
             {
-                //If any direction can hit the blocked return false
                 if (!direction.IsBlockedIfMove(from, to, blocked)) return false;
             }
 

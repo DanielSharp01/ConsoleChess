@@ -35,13 +35,23 @@ namespace ChessConsole
 
         /// <summary>
         /// All the moves legal to make with this piece. It's a subset of <see cref="PossibleMoves"/>.
-        /// See also <seealso cref="ChessBoard.isMoveLegal(Piece, ChessBoard.Cell)"/>.
+        /// See also <seealso cref="ChessBoard.IsMoveLegal(Piece, ChessBoard.Cell)"/>.
         /// </summary>
         public List<ChessBoard.Cell> LegalMoves
         {
             private set;
             get;
         }
+
+        /// <summary>
+        /// All the nodes that this piece can hit. See also <seealso cref="ChessBoard.Cell.HitBy"/>.
+        /// </summary>
+        public List<ChessBoard.Cell> Hitting = new List<ChessBoard.Cell>();
+
+        /// <summary>
+        /// The number of possible moves. NOTE: Not the same as legal moves, that is not handled by the piece.
+        /// </summary>
+        public abstract int PossibleMoveCount { get; }
 
         public ChessBoard.Cell Parent
         {
@@ -58,30 +68,44 @@ namespace ChessConsole
 
         /// <summary>
         /// Called when the piece is first placed or when the piece is replaced after promotion.
-        /// Does not recalculate just yet, you have to call <see cref="Recalculate"/> for that.
+        /// Does not recalculate just yet, you have to call <see cref="recalculatePossibleMoves"/> for that.
         /// </summary>
-        public void OnPlace(ChessBoard.Cell cell)
+        public void OnPlace(ChessBoard.Cell node)
         {
-            Parent = cell;
+            Parent = node;
         }
 
         /// <summary>
         /// Called when the piece is moved.
-        /// Does not recalculate just yet, you have to call <see cref="Recalculate"/> for that.
+        /// Does not recalculate just yet, you have to call <see cref="recalculatePossibleMoves"/> for that.
         /// </summary>
-        public void OnMove(ChessBoard.Cell cell)
+        public void OnMove(ChessBoard.Cell node)
         {
-            Parent = cell;
+            Parent = node;
             Moved = true;
+        }
+
+        /// <summary>
+        /// Called when the piece is created or moved to recalculate possible moves.
+        /// </summary>
+        public void Recalculate()
+        {
+            foreach (ChessBoard.Cell hitNode in Hitting)
+            {
+                hitNode.HitBy.Remove(this);
+            }
+            Hitting.Clear();
+
+            recalculatePossibleMoves();
         }
 
         /// <summary>
         /// Recalculates the possible moves and updates the hit graph
         /// </summary>
-        public abstract void Recalculate();
+        protected abstract void recalculatePossibleMoves();
 
         /// <summary>
-        /// Tells if the moved piece on the cell changed the hit state of the blocked 
+        /// Tells if the moved piece on the node changed the hit state of the blocked 
         /// </summary>
         /// <param name="from">Where the piece stands right now</param>
         /// <param name="to">Where the piece is moved</param>
@@ -91,9 +115,9 @@ namespace ChessConsole
 
         public abstract char Char { get; }
 
-        protected virtual bool canHit(ChessBoard.Cell cell)
+        protected virtual bool canHit(ChessBoard.Cell node)
         {
-            return cell != null && cell.Piece != null && cell.Piece.Color != Color;
+            return node != null && node.Piece != null && node.Piece.Color != Color;
         }
     }
 }

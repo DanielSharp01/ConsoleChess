@@ -4,15 +4,39 @@ namespace ChessConsole.Pieces
 {
     public class King : Piece
     {
+        public override int PossibleMoveCount
+        {
+            get
+            {
+                int sum = 0;
+                foreach (Direction direction in directions)
+                {
+                    sum += direction.GetPossibleMoveCount();
+                }
+
+                return sum;
+            }
+        }
+
         /// <summary>
         /// Represents the directions of movement
         /// </summary>
         private Direction[] directions = new Direction[8];
 
         /// <summary>
+        /// All the nodes we are listening to to perform castling to the left
+        /// </summary>
+        private ChessBoard.Cell[] listenedForCastleLeft = new ChessBoard.Cell[4];
+
+        /// <summary>
         /// Shows if we can castle to the left
         /// </summary>
         private bool canCastleLeft;
+
+        /// <summary>
+        /// All the nodes we are listening to to perform castling to the right
+        /// </summary>
+        private ChessBoard.Cell[] listenedForCastleRight = new ChessBoard.Cell[3];
 
         /// <summary>
         /// Shows if we can castle to the right
@@ -34,62 +58,53 @@ namespace ChessConsole.Pieces
             {
                 foreach (Direction direction in directions)
                 {
-                    foreach (ChessBoard.Cell cell in direction.GetPossibleMoves())
+                    foreach (ChessBoard.Cell node in direction.GetPossibleMoves())
                     {
-                        yield return cell;
+                        yield return node;
                     }
 
                     if (canCastleLeft)
                     {
-                        yield return Parent.Parent.GetCell(2, (Color == PlayerColor.White) ? 0 : 7);
+                        yield return listenedForCastleLeft[2];
                     }
 
                     if (canCastleRight)
                     {
-                        yield return Parent.Parent.GetCell(6, (Color == PlayerColor.White) ? 0 : 7);
+                        yield return listenedForCastleRight[1];
                     }
                 }
             }
         }
 
-        public override void Recalculate()
+        protected override void recalculatePossibleMoves()
         {
             //If moved castling is not possible anymore an we should also remove listeners
-            if (!Moved)
+            if (Moved)
             {
-                //Set it to true we'll set it to false if it wasn't true
-                canCastleLeft = true;
-
-                //Checks if the left rook is still in place and haven't moved yet
-                ChessBoard.Cell leftRookCell = Parent.Parent.GetCell(0, (Color == PlayerColor.White) ? 0 : 7);
-                if (leftRookCell.Piece == null || !(leftRookCell.Piece is Rook) || leftRookCell.Piece.Color != Color || leftRookCell.Piece.Moved)
-                    canCastleLeft = false;
-                else
+                if (listenedForCastleLeft != null)
                 {
-                    //Checks pieces that could block the castle
-                    for (int i = 1; i <= 3; i++)
+                    for (int i = 0; i < 4; i++)
                     {
-                        if (Parent.Parent.GetCell(i, (Color == PlayerColor.White) ? 0 : 7).Piece != null)
-                            canCastleLeft = false;
+                        listenedForCastleLeft[i].NodeChanged -= CastleLeftChanged;
                     }
+                    listenedForCastleLeft = null;
                 }
 
-                //Set it to true we'll set it to false if it wasn't true
-                canCastleRight = true;
-
-                //Checks if the right rook is still in place and haven't moved yet
-                ChessBoard.Cell rightRookCell = Parent.Parent.GetCell(7, (Color == PlayerColor.White) ? 0 : 7);
-                if (rightRookCell.Piece == null || !(rightRookCell.Piece is Rook) || rightRookCell.Piece.Color != Color || rightRookCell.Piece.Moved)
-                    canCastleRight = false;
-                else
+                if (listenedForCastleRight != null)
                 {
-                    //Checks pieces that could block the castle
-                    for (int i = 5; i <= 6; i++)
+                    for (int i = 0; i < 3; i++)
                     {
-                        if (Parent.Parent.GetCell(i, (Color == PlayerColor.White) ? 0 : 7).Piece != null)
-                            canCastleRight = false;
+                        listenedForCastleRight[i].NodeChanged -= CastleRightChanged;
                     }
+                    listenedForCastleLeft = null;
                 }
+                canCastleLeft = false;
+                canCastleRight = false;
+            }
+
+            foreach (Direction direction in directions)
+            {
+                if (direction != null) direction.Dispose();
             }
 
             //Open upward direction and listen to it
@@ -108,18 +123,97 @@ namespace ChessConsole.Pieces
             directions[6] = new Direction(this, -1, -1, 1);
             //Open down right direction and listen to it
             directions[7] = new Direction(this, 1, -1, 1);
+
+            //We only have to set up castling on the first move
+            if (!Moved)
+            {
+                int castleRow = (Color == PlayerColor.White) ? 0 : 7;
+                listenedForCastleLeft[0] = Parent.Parent.GetNode(0, castleRow);
+                listenedForCastleLeft[1] = Parent.Parent.GetNode(1, castleRow);
+                listenedForCastleLeft[2] = Parent.Parent.GetNode(2, castleRow);
+                listenedForCastleLeft[3] = Parent.Parent.GetNode(3, castleRow);
+
+
+                for (int i = 0; i < 4; i++)
+                {
+                    listenedForCastleLeft[i].NodeChanged += CastleLeftChanged;
+                }
+
+                //Invoke so that if we can castle in the beginning (in a real game this never happens)
+                CastleLeftChanged(null);
+
+                listenedForCastleRight[0] = Parent.Parent.GetNode(5, castleRow);
+                listenedForCastleRight[1] = Parent.Parent.GetNode(6, castleRow);
+                listenedForCastleRight[2] = Parent.Parent.GetNode(7, castleRow);
+
+                for (int i = 0; i < 3; i++)
+                {
+                    listenedForCastleRight[i].NodeChanged += CastleRightChanged;
+                }
+
+                //Invoke so that if we can castle in the beginning (in a real game this never happens)
+                CastleRightChanged(null);
+            }
         }
 
         public override bool IsBlockedIfMove(ChessBoard.Cell from, ChessBoard.Cell to, ChessBoard.Cell blocked)
         {
             foreach (Direction direction in directions)
             {
-                //If any direction can hit the blocked return false
-                if (!direction.IsBlockedIfMove(from, to, blocked))
-                    return false;
+                if (!direction.IsBlockedIfMove(from, to, blocked)) return false;
             }
 
             return true;
+        }
+
+        private void CastleLeftChanged(ChessBoard.Cell node)
+        {
+            //The left rook moved so remove the listeners and set canCastleLeft to false indefinetely
+            if (node == listenedForCastleLeft[0])
+            {
+                if (listenedForCastleLeft != null)
+                {
+                    for (int i = 0; i < 4; i++)
+                    {
+                        listenedForCastleLeft[i].NodeChanged -= CastleLeftChanged;
+                    }
+                }
+                listenedForCastleLeft = null;
+
+                canCastleLeft = false;
+                return;
+            }
+
+            //If all intermediates are gone then we can castle
+            if (listenedForCastleLeft[1].Piece == null && listenedForCastleLeft[2].Piece == null && listenedForCastleLeft[3].Piece == null)
+            {
+                canCastleLeft = true;
+            }
+        }
+
+        private void CastleRightChanged(ChessBoard.Cell node)
+        {
+            //The right rook moved so remove the listeners and set canCastleRight to false indefinetely
+            if (node == listenedForCastleRight[2])
+            {
+                if (listenedForCastleRight != null)
+                {
+                    for (int i = 0; i < 3; i++)
+                    {
+                        listenedForCastleRight[i].NodeChanged -= CastleLeftChanged;
+                    }
+                }
+                listenedForCastleRight = null;
+
+                canCastleRight = false;
+                return;
+            }
+
+            //If all intermediates are gone then we can castle
+            if (listenedForCastleRight[0].Piece == null && listenedForCastleRight[1].Piece == null)
+            {
+                canCastleRight = true;
+            }
         }
 
         public override char Char => 'K';

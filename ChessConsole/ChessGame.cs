@@ -52,7 +52,7 @@ namespace ChessConsole
         private ChessBoard board;
 
         /// <summary>
-        /// Currently holded piece's parent cell
+        /// Currently holded piece's parent node
         /// </summary>
         private ChessBoard.Cell holdedNode = null;
 
@@ -117,17 +117,17 @@ namespace ChessConsole
                 for (int j = 0; j < 8; j++)
                 {
                     //Draw the symbol
-                    ChessBoard.Cell cell = board.GetCell(i, j);
-                    if (cell.Piece != null)
+                    ChessBoard.Cell node = board.GetNode(i, j);
+                    if (node.Piece != null)
                     {
-                        g.DrawTransparent(cell.Piece.Char, (cell.Piece.Color == PlayerColor.White) ? ConsoleColor.White : ConsoleColor.Black, 10 + i, 5 + (7 - j));
-                        if (cell.Piece.LegalMoves.Count == 0)
+                        g.DrawTransparent(node.Piece.Char, (node.Piece.Color == PlayerColor.White) ? ConsoleColor.White : ConsoleColor.Black, 10 + i, 5 + (7 - j));
+                        if (node.Piece.LegalMoves.Count == 0)
                         {
                             g.SetBackground(ConsoleColor.DarkRed, 10 + i, 5 + (7 - j));
                         }
                     }
 
-                    if (cell.HitBy.Contains(debugPiece))
+                    if (node.HitBy.Contains(debugPiece))
                         g.SetBackground(ConsoleColor.DarkMagenta, 10 + i, 5 + (7 - j));
                 }
             }
@@ -187,7 +187,7 @@ namespace ChessConsole
             switch (playerState)
             {
                 case PlayerState.Idle:
-                    holdedNode = board.GetCell(cursorX, cursorY);
+                    holdedNode = board.GetNode(cursorX, cursorY);
 
                     if (holdedNode.Piece == null || holdedNode.Piece.Color != currentPlayer || holdedNode.Piece.LegalMoves.Count == 0)
                     {
@@ -201,7 +201,7 @@ namespace ChessConsole
                 case PlayerState.Holding:
                     playerState = PlayerState.Holding;
 
-                    moveTo = board.GetCell(cursorX, cursorY);
+                    moveTo = board.GetNode(cursorX, cursorY);
 
                     if (!holdedNode.Piece.LegalMoves.Contains(moveTo))
                     {
@@ -228,7 +228,7 @@ namespace ChessConsole
         private Piece debugPiece;
         private void debugInteract()
         {
-            debugPiece = board.GetCell(cursorX, cursorY).Piece;
+            debugPiece = board.GetNode(cursorX, cursorY).Piece;
         }
 
         /// <summary>

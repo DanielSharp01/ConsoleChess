@@ -4,17 +4,32 @@ namespace ChessConsole.Pieces
 {
     public class Knight : Piece
     {
+        public override int PossibleMoveCount
+        {
+            get
+            {
+                int sum = 0;
+                foreach (ChessBoard.Cell node in possibleNodes)
+                {
+                    if (node != null && (node.Piece == null || node.Piece.Color != Color))
+                        sum++;
+                }
+
+                return sum;
+            }
+        }
+
         /// <summary>
         /// Possible places where the knight can jump
         /// </summary>
-        private ChessBoard.Cell[] possibleCells = new ChessBoard.Cell[8];
+        private ChessBoard.Cell[] possibleNodes = new ChessBoard.Cell[8];
 
         public Knight(PlayerColor color)
             : base(color)
         {
             for (int i = 0; i < 8; i++)
             {
-                possibleCells[i] = null;
+                possibleNodes[i] = null;
             }
         }
 
@@ -28,37 +43,40 @@ namespace ChessConsole.Pieces
         {
             get
             {
-                foreach (ChessBoard.Cell cell in possibleCells)
+                foreach (ChessBoard.Cell node in possibleNodes)
                 {
-                    if (cell != null && (cell.Piece == null || cell.Piece.Color != Color))
-                        yield return cell;
+                    if (node != null && (node.Piece == null || node.Piece.Color != Color))
+                        yield return node;
                 }
             }
         }
 
-        public override void Recalculate()
+        protected override void recalculatePossibleMoves()
         {
             //2 up 1 left
-            possibleCells[0] = Parent.Open(-1, 2);
+            possibleNodes[0] = Parent.Open(-1, 2);
             //2 down 1 left
-            possibleCells[1] = Parent.Open(-1, -2);
+            possibleNodes[1] = Parent.Open(-1, -2);
             //2 up 1 right
-            possibleCells[2] = Parent.Open(1, 2);
+            possibleNodes[2] = Parent.Open(1, 2);
             //2 down 1 right
-            possibleCells[3] = Parent.Open(1, -2);
+            possibleNodes[3] = Parent.Open(1, -2);
             //1 up 2 left
-            possibleCells[4] = Parent.Open(-2, 1);
+            possibleNodes[4] = Parent.Open(-2, 1);
             //1 down 2 left
-            possibleCells[5] = Parent.Open(-2, -1);
+            possibleNodes[5] = Parent.Open(-2, -1);
             //1 up 2 right
-            possibleCells[6] = Parent.Open(2, 1);
+            possibleNodes[6] = Parent.Open(2, 1);
             //1 down 2 right
-            possibleCells[7] = Parent.Open(2, -1);
+            possibleNodes[7] = Parent.Open(2, -1);
 
             for (int i = 0; i < 8; i++)
             {
-                if (possibleCells[i] != null)
-                    possibleCells[i].HitBy.Add(this);
+                if (possibleNodes[i] != null)
+                {
+                    possibleNodes[i].HitBy.Add(this);
+                    Hitting.Add(possibleNodes[i]);
+                }
             }
         }
 
@@ -66,12 +84,12 @@ namespace ChessConsole.Pieces
         {
             //The knight's hits cannot be blocked
             for (int i = 0; i < 8; i++)
-                if (possibleCells[i] == blocked)
+                if (possibleNodes[i] == blocked)
                     return false;
 
             return true;
         }
 
-        public override char Char => 'H'; //H for horse as we are using K for king
+        public override char Char => 'H'; //H for hose as we are using K for king
     }
 }

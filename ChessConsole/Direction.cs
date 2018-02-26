@@ -7,7 +7,7 @@ namespace ChessConsole
     /// <summary>
     /// Contains possible moves and handles line of sight checks
     /// </summary>
-    public class Direction
+    public class Direction : IDisposable
     {
         /// <summary>
         /// The piece whose moves are represented by this object
@@ -91,7 +91,7 @@ namespace ChessConsole
         }
 
         /// <summary>
-        /// Tells if the direction should update the hit graph of possible move cells
+        /// Tells if the direction should update the hit graph of possible move nodes
         /// </summary>
         private bool updateHitGraph;
 
@@ -108,13 +108,51 @@ namespace ChessConsole
 
             foreach (ChessBoard.Cell move in possibleMoves)
             {
+                move.NodeChanged += pathNodeChanged;
                 if (updateHitGraph)
+                {
                     move.HitBy.Add(Piece);
+                    Piece.Hitting.Add(move);
+                }
+            }
+        }
+
+        private void pathNodeChanged(ChessBoard.Cell node)
+        {
+            //If the node.Piece changed into a null then that was only a change if a piece was there blocking our sight
+            if (node.Piece == null && node == possibleMoves.Last())
+            {
+                foreach (ChessBoard.Cell move in node.OpenLineOfSight(X, Y, DesiredCount - possibleMoves.Count))
+                {
+                    move.NodeChanged += pathNodeChanged;
+                    if (updateHitGraph)
+                    {
+                        move.HitBy.Add(Piece);
+                        Piece.Hitting.Add(move);
+                    }
+                    possibleMoves.Add(move);
+                }
+            }
+            //If we got a new intermediate node then that blocks our sight
+            else if (node.Piece != null)
+            {
+                //If a node changed that's in the line of sight and not the blocker than logically it has to be that a new blocker was introduced
+                int index = possibleMoves.IndexOf(node);
+                for (int i = index + 1; i < possibleMoves.Count; ) //NOTE: We are not incrementing i as we would have to decrement it every iteration
+                {
+                    possibleMoves[i].NodeChanged -= pathNodeChanged;
+                    if (updateHitGraph)
+                    {
+                        possibleMoves[i].HitBy.Remove(Piece);
+                        Piece.Hitting.Remove(possibleMoves[i]);
+                    }
+                    possibleMoves.RemoveAt(i);
+                }
             }
         }
 
         /// <summary>
-        /// Tells if the moved piece on the cell changed the hit state of the blocked 
+        /// Tells if the moved piece on the node changed the hit state of the blocked 
         /// </summary>
         /// <param name="from">Where the piece stands right now</param>
         /// <param name="to">Where the piece is moved</param>
@@ -148,6 +186,17 @@ namespace ChessConsole
 
             //Happens when the blocker was not cotained and the blocked was not contained a perfect combination for nothing happening
             return true;
+        }
+
+        /// <summary>
+        /// Removes the listeners to avoid memory leak
+        /// </summary>
+        public void Dispose()
+        {
+            foreach (ChessBoard.Cell move in possibleMoves)
+            {
+                move.NodeChanged -= pathNodeChanged;
+            }
         }
     }
 }
